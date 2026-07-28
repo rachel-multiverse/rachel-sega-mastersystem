@@ -7,7 +7,7 @@ A Rachel card game client for the Sega Master System.
 - **CPU**: Zilog Z80 @ 3.58 MHz
 - **RAM**: 8KB
 - **Graphics**: VDP (TMS9918 derivative)
-- **Platform ID**: `0x00C3` (195)
+- **Platform ID**: `0x0013` (19)
 - **Player Name**: "MASTER SYS"
 
 ## Building

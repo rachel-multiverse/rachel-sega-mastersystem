@@ -3,9 +3,9 @@
 ; Main entry point
 ; =============================================================================
 
-; Platform ID: 0x00C3 (195)
+; Platform ID: 0x0013 (19)
 PLATFORM_ID_HI  equ     $00
-PLATFORM_ID_LO  equ     $C3
+PLATFORM_ID_LO  equ     $13
 
 ; =============================================================================
 ; Memory Map
