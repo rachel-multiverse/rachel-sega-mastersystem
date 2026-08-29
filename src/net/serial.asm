@@ -115,6 +115,13 @@ net_send:
         ld      hl, at_cipsend
         call    send_at_string
 
+        ; ESP-AT accepts payload only after the send prompt.
+wait_send_prompt:
+        call    serial_read_byte
+        jr      c, wait_send_prompt
+        cp      '>'
+        jr      nz, wait_send_prompt
+
         ; Send buffer
         ld      hl, net_buffer_tx
         ld      b, 64
@@ -130,24 +137,44 @@ send_loop:
 ; Returns: A = 0 on success, 1 on partial, 2 on no data
 ; =============================================================================
 net_recv:
+        ; Strip +IPD/status text by synchronising on the RUBP magic.
         ld      hl, net_buffer_rx
-        ld      b, 64
-        ld      c, 0            ; Bytes received
-
-recv_loop:
+find_magic_r:
         call    serial_read_byte
-        jr      c, timeout
+        jr      c, recv_no_data
+        cp      'R'
+        jr      nz, find_magic_r
         ld      (hl), a
         inc     hl
-        inc     c
-        djnz recv_loop
+        call    serial_read_byte
+        jr      c, recv_no_data
+        cp      'A'
+        jr      nz, find_magic_r
+        ld      (hl), a
+        inc     hl
+        call    serial_read_byte
+        jr      c, recv_no_data
+        cp      'C'
+        jr      nz, find_magic_r
+        ld      (hl), a
+        inc     hl
+        call    serial_read_byte
+        jr      c, recv_no_data
+        cp      'H'
+        jr      nz, find_magic_r
+        ld      (hl), a
+        inc     hl
+
+        ld      b, 60
+recv_loop:
+        call    serial_read_byte
+        jr      c, recv_partial
+        ld      (hl), a
+        inc     hl
+        djnz    recv_loop
         xor     a               ; Success
         ret
-
-timeout:
-        ld      a, c
-        or      a
-        jr      z, recv_no_data
+recv_partial:
         ld      a, 1            ; Partial
         ret
 recv_no_data:
@@ -166,9 +193,9 @@ net_close:
 ; Data
 ; =============================================================================
 at_cipstart:
-        db      "AT+CIPSTART=\"TCP\",\"", 0
+        db      "AT+CIPSTART=", $22, "TCP", $22, ",", $22, 0
 at_port:
-        db      "\",8765", 13, 0
+        db      $22, ",8765", 13, 0
 at_cipsend:
         db      "AT+CIPSEND=64", 13, 0
 at_cipclose:
@@ -185,19 +212,25 @@ joypad_old      equ     RAM_START + 2
 joypad_new      equ     RAM_START + 3
 cursor_x        equ     RAM_START + 4
 cursor_y        equ     RAM_START + 5
-msg_sequence    equ     RAM_START + 6
+msg_sequence    equ     RAM_START + 6     ; 2 bytes
+player_id       equ     RAM_START + 8     ; 2 bytes, little-endian in RAM
+game_id         equ     RAM_START + 10    ; 2 bytes, little-endian in RAM
 
 ; RUBP buffers
-net_buffer_tx   equ     RAM_START + 7
-net_buffer_rx   equ     RAM_START + 71   ; 7 + 64
+net_buffer_tx   equ     RAM_START + 12
+net_buffer_rx   equ     RAM_START + 76
 
 ; Game state
-current_turn    equ     RAM_START + 135  ; 71 + 64
-my_index        equ     RAM_START + 136
-discard_top     equ     RAM_START + 137
-current_suit    equ     RAM_START + 138
-draw_count      equ     RAM_START + 139
-hand_count      equ     RAM_START + 140
-hand_cursor     equ     RAM_START + 141
-hand_cards      equ     RAM_START + 142
-hand_selected   equ     RAM_START + 162  ; 142 + 20
+current_turn    equ     RAM_START + 140
+my_index        equ     RAM_START + 141
+discard_top     equ     RAM_START + 142
+current_suit    equ     RAM_START + 143
+draw_count      equ     RAM_START + 144
+hand_count      equ     RAM_START + 145
+hand_cursor     equ     RAM_START + 146
+nominated_suit  equ     RAM_START + 147
+selected_count  equ     RAM_START + 148
+state_hash_valid equ    RAM_START + 149
+state_hash      equ     RAM_START + 150   ; 8 bytes
+hand_cards      equ     RAM_START + 158   ; 32 bytes
+hand_selected   equ     RAM_START + 190   ; 32 bytes

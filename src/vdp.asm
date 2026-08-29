@@ -14,7 +14,7 @@
 
 VDP_REG_DATA:
         db      $04             ; R0: Mode Control 1
-        db      $A0             ; R1: Mode Control 2 (display on, VBlank IRQ)
+        db      $E0             ; R1: display on, VBlank IRQ enabled
         db      $FF             ; R2: Name Table at $3800 (>>10 | $F1)
         db      $FF             ; R3: Color table (not used in mode 4)
         db      $FF             ; R4: Pattern generator (not used in mode 4)
@@ -114,11 +114,12 @@ char_loop:
         ld      b, 8            ; 8 rows per character
 row_loop:
         ld      a, (hl)
-        ; Write 4 planes for mode 4
-        out     (VDP_DATA), a   ; Plane 0
-        out     (VDP_DATA), a   ; Plane 1
-        out     (VDP_DATA), a   ; Plane 2
-        out     (VDP_DATA), a   ; Plane 3
+        ; Use colour index 1: glyph in plane 0, remaining planes clear.
+        out     (VDP_DATA), a
+        xor     a
+        out     (VDP_DATA), a
+        out     (VDP_DATA), a
+        out     (VDP_DATA), a
         inc     hl
         djnz row_loop
         dec     de

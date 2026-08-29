@@ -12,10 +12,14 @@ A Rachel card game client for the Sega Master System.
 
 ## Building
 
-Requires [pasmo](http://pasmo.speccy.org/) Z80 assembler:
+Asm198x 0.0.51 is the primary assembler. Pasmo remains a byte-for-byte
+reference oracle:
 
 ```bash
 make
+
+# Build, verify the Sega header/checksum and compare with Pasmo
+make check
 ```
 
 Output: `build/rachel.sms` (~32KB ROM)
@@ -43,6 +47,9 @@ Uses RUBP (Rachel Unified Binary Protocol):
 - 64-byte fixed-size messages
 - 16-byte header with "RACH" magic
 - 48-byte payload
+- RachelSpec v1 actions with observed-state hashes
+- Public `GAME_STATE` and private `GAME_START`/`CARD_DRAWN`/`HAND_SYNC`
+- Up to 32 selectable cards and ace suit nomination
 
 Full specification: [rachel-multiverse/protocol](https://github.com/rachel-multiverse/protocol) — also rendered at <https://rachel.stevehill.xyz/protocol>.
 

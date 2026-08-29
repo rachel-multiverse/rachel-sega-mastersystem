@@ -1,0 +1,32 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update && sudo apt-get install -y pasmo
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/rachel-tools
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/target
+          key: asm198x-${{ runner.os }}-3b73d36aeffd4f531ff5eb467dd368118ff8dcc9
+      - name: Build Asm198x 0.0.51
+        run: |
+          if [ ! -x "$HOME/.cache/rachel-tools/asm198x" ]; then
+            git clone https://github.com/asm198x/asm198x.git /tmp/asm198x
+            git -C /tmp/asm198x checkout 3b73d36aeffd4f531ff5eb467dd368118ff8dcc9
+            CARGO_TARGET_DIR="$HOME/.cargo/target" cargo build --locked --release --manifest-path /tmp/asm198x/Cargo.toml -p asm198x
+            mkdir -p "$HOME/.cache/rachel-tools"
+            cp "$HOME/.cargo/target/release/asm198x" "$HOME/.cache/rachel-tools/asm198x"
+          fi
+      - run: make check ASM198X="$HOME/.cache/rachel-tools/asm198x"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: rachel-master-system-rom
+          path: build/rachel.sms

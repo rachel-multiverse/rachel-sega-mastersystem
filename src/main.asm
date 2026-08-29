@@ -45,9 +45,17 @@ JOY_BTN2        equ     5
 ; =============================================================================
 RUBP_VERSION    equ     1
 MSG_HELLO       equ     $01
-MSG_GAME_STATE  equ     $10
-MSG_PLAY_CARD   equ     $20
-MSG_DRAW_CARD   equ     $21
+MSG_WELCOME     equ     $02
+MSG_GAME_START  equ     $03
+MSG_PLAY_CARD   equ     $04
+MSG_DRAW_CARD   equ     $05
+MSG_CARD_DRAWN  equ     $06
+MSG_GAME_STATE  equ     $07
+MSG_TURN_START  equ     $08
+MSG_TURN_END    equ     $09
+MSG_PLAYER_WON  equ     $0A
+MSG_ERROR       equ     $0B
+MSG_HAND_SYNC   equ     $0F
 HEADER_SIZE     equ     16
 PAYLOAD_START   equ     16
 PAYLOAD_SIZE    equ     48
@@ -175,6 +183,46 @@ handle_connect:
         jr      nz, fail
 
         call    send_hello
+
+wait_welcome:
+        call    net_recv
+        or      a
+        jr      nz, wait_welcome
+        call    rubp_validate
+        or      a
+        jr      nz, wait_welcome
+        call    get_message_type
+        cp      MSG_WELCOME
+        jr      nz, wait_welcome
+        call    parse_welcome
+
+wait_start:
+        call    net_recv
+        or      a
+        jr      nz, wait_start
+        call    rubp_validate
+        or      a
+        jr      nz, wait_start
+        call    get_message_type
+        cp      MSG_GAME_START
+        jr      z, got_start
+        cp      MSG_HAND_SYNC
+        jr      nz, wait_start
+got_start:
+        call    parse_hand_replace
+
+wait_state:
+        call    net_recv
+        or      a
+        jr      nz, wait_state
+        call    rubp_validate
+        or      a
+        jr      nz, wait_state
+        call    get_message_type
+        cp      MSG_GAME_STATE
+        jr      nz, wait_state
+        call    process_game_state
+        call    render_game
         ld      a, STATE_GAME
         ld      (game_state), a
         jp      main_loop
@@ -196,9 +244,34 @@ handle_game:
 
         call    get_message_type
         cp      MSG_GAME_STATE
-        jr      nz, no_data
-
+        jr      z, got_game_state
+        cp      MSG_CARD_DRAWN
+        jr      z, got_card_drawn
+        cp      MSG_HAND_SYNC
+        jr      z, got_hand_sync
+        cp      MSG_TURN_START
+        jr      z, got_turn_start
+        cp      MSG_PLAYER_WON
+        jr      z, got_player_won
+        jr      no_data
+got_game_state:
         call    process_game_state
+        call    render_game
+        jr      no_data
+got_card_drawn:
+        call    parse_card_drawn
+        call    render_game
+        jr      no_data
+got_hand_sync:
+        call    parse_hand_replace
+        call    render_game
+        jr      no_data
+got_turn_start:
+        ld      a, (net_buffer_rx + PAYLOAD_START)
+        ld      (current_turn), a
+        call    render_game
+        jr      no_data
+got_player_won:
         call    render_game
 
 no_data:
@@ -220,6 +293,9 @@ clear_loop_main:
         ld      a, b
         or      c
         jr      nz, clear_loop_main
+        ld      a, $FF          ; unassigned player ID in HELLO
+        ld      (player_id), a
+        ld      (player_id + 1), a
         ret
 
 ; =============================================================================
@@ -249,7 +325,7 @@ wait_vblank:
 ; TMR SEGA header
         db      "TMR SEGA"      ; Magic string
         db      $00, $00        ; Reserved
-        db      $00, $00        ; Checksum (filled by tool)
+        db      $00, $00        ; Checksum (filled by tools/finalize_rom.py)
         db      $00             ; Product code (low)
         db      $00             ; Product code (high) / version
         db      $4C             ; Region/ROM size (4=SMS Export, C=32KB)
