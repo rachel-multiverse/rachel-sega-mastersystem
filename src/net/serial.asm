@@ -195,7 +195,7 @@ net_close:
 at_cipstart:
         db      "AT+CIPSTART=", $22, "TCP", $22, ",", $22, 0
 at_port:
-        db      $22, ",8765", 13, 0
+        db      $22, ",6502", 13, 0
 at_cipsend:
         db      "AT+CIPSEND=64", 13, 0
 at_cipclose:
