@@ -69,6 +69,7 @@ wait_tx:
 ; Returns: A = byte, carry set on timeout
 ; =============================================================================
 serial_read_byte:
+        push    bc              ; Caller owns frame/response loop counters
         ld      bc, 10000
 wait_rx:
         in      a, (SERIAL_STATUS)
@@ -79,10 +80,12 @@ wait_rx:
         or      c
         jr      nz, wait_rx
         scf                     ; Timeout
+        pop     bc              ; POP preserves A and carry
         ret
 got_data:
         in      a, (SERIAL_DATA)
         or      a               ; Clear carry
+        pop     bc              ; POP preserves A and carry
         ret
 
 ; =============================================================================
@@ -138,30 +141,31 @@ send_loop:
 ; =============================================================================
 net_recv:
         ; Strip +IPD/status text by synchronising on the RUBP magic.
-        ld      hl, net_buffer_rx
 find_magic_r:
         call    serial_read_byte
         jr      c, recv_no_data
+check_magic_r:
         cp      'R'
         jr      nz, find_magic_r
+        ld      hl, net_buffer_rx
         ld      (hl), a
         inc     hl
         call    serial_read_byte
         jr      c, recv_no_data
         cp      'A'
-        jr      nz, find_magic_r
+        jr      nz, check_magic_r
         ld      (hl), a
         inc     hl
         call    serial_read_byte
         jr      c, recv_no_data
         cp      'C'
-        jr      nz, find_magic_r
+        jr      nz, check_magic_r
         ld      (hl), a
         inc     hl
         call    serial_read_byte
         jr      c, recv_no_data
         cp      'H'
-        jr      nz, find_magic_r
+        jr      nz, check_magic_r
         ld      (hl), a
         inc     hl
 
